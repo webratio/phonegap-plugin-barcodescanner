@@ -33,8 +33,8 @@ public final class GingerbreadOpenCameraInterface implements OpenCameraInterface
    * Opens a rear-facing camera with {@link Camera#open(int)}, if one exists, or opens camera 0.
    */
   @Override
-  public Camera open() {
-    
+  public Camera open(boolean preferFrontCamera) {
+      
     int numCameras = Camera.getNumberOfCameras();
     if (numCameras == 0) {
       Log.w(TAG, "No cameras!");
@@ -45,8 +45,14 @@ public final class GingerbreadOpenCameraInterface implements OpenCameraInterface
     while (index < numCameras) {
       Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
       Camera.getCameraInfo(index, cameraInfo);
-      if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-        break;
+      if (preferFrontCamera) {
+        if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+          break;
+        }
+      } else {
+        if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+          break;
+        }
       }
       index++;
     }
@@ -56,7 +62,7 @@ public final class GingerbreadOpenCameraInterface implements OpenCameraInterface
       Log.i(TAG, "Opening camera #" + index);
       camera = Camera.open(index);
     } else {
-      Log.i(TAG, "No camera facing back; returning camera #0");
+      Log.i(TAG, "No camera found according to preference; returning camera #0");
       camera = Camera.open(0);
     }
 

@@ -101,7 +101,7 @@
         };
 
         //-------------------------------------------------------------------
-        BarcodeScanner.prototype.encode = function (type, data, successCallback, errorCallback, options) {
+        BarcodeScanner.prototype.encode = function (type, data, format, successCallback, errorCallback, options) {
             if (errorCallback == null) {
                 errorCallback = function () {
                 };
@@ -118,7 +118,7 @@
             }
 
             exec(successCallback, errorCallback, 'BarcodeScanner', 'encode', [
-                {"type": type, "data": data, "options": options}
+                {"type": type, "data": data, "format": format, "options": options}
             ]);
         };
 

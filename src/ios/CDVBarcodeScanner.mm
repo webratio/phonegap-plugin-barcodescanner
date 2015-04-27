@@ -93,8 +93,9 @@
 @property (nonatomic, retain) NSString*                   callback;
 @property (nonatomic, retain) NSString*                   stringToEncode;
 @property                     NSInteger                   size;
+@property (nonatomic, retain) NSString*					  format;
 
-- (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback stringToEncode:(NSString*)stringToEncode;
+- (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback stringToEncode:(NSString*)stringToEncode format:(NSString*)format;
 - (void)generateImage;
 @end
 
@@ -177,11 +178,12 @@
     CDVqrProcessor* processor;
     NSString*       callback;
     callback = command.callbackId;
-    
+    NSDictionary* options = [command.arguments objectAtIndex:0];
     processor = [[CDVqrProcessor alloc]
                  initWithPlugin:self
                  callback:callback
                  stringToEncode: command.arguments[0][@"data"]
+				 format:command.arguments[0][@"format"]
                  ];
     
     [processor retain];
@@ -684,8 +686,9 @@ parentViewController:(UIViewController*)parentViewController
 @synthesize callback             = _callback;
 @synthesize stringToEncode       = _stringToEncode;
 @synthesize size                 = _size;
+@synthesize format				 = _format;
 
-- (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback stringToEncode:(NSString*)stringToEncode{
+- (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback stringToEncode:(NSString*)stringToEncode format:(NSString*)format{
     self = [super init];
     if (!self) return self;
     
@@ -693,6 +696,7 @@ parentViewController:(UIViewController*)parentViewController
     self.callback        = callback;
     self.stringToEncode  = stringToEncode;
     self.size            = 300;
+	self.format			 = format;
     
     return self;
 }
@@ -702,24 +706,28 @@ parentViewController:(UIViewController*)parentViewController
     self.plugin = nil;
     self.callback = nil;
     self.stringToEncode = nil;
+	self.format = nil;
     
     [super dealloc];
 }
 //--------------------------------------------------------------------------
 - (void)generateImage{
     /* setup qr filter */
-    CIFilter *filter = [CIFilter filterWithName:@"CIQRCodeGenerator"];
-    [filter setDefaults];
-    
-    /* set filter's input message
-     * the encoding string has to be convert to a UTF-8 encoded NSData object */
-    [filter setValue:[self.stringToEncode dataUsingEncoding:NSUTF8StringEncoding]
-              forKey:@"inputMessage"];
-    
-    /* on ios >= 7.0  set low image error correction level */
-    if (floor(NSFoundationVersionNumber) >= NSFoundationVersionNumber_iOS_7_0)
-        [filter setValue:@"L" forKey:@"inputCorrectionLevel"];
-    
+    CIFilter *filter = nil;
+	if([@"QR_CODE" isEqualToString:self.format]){
+		filter = [CIFilter filterWithName:@"CIQRCodeGenerator"];
+		[filter setDefaults];
+		if (floor(NSFoundationVersionNumber) >= NSFoundationVersionNumber_iOS_7_0)
+        	[filter setValue:@"L" forKey:@"inputCorrectionLevel"];
+	    [filter setValue:[self.stringToEncode dataUsingEncoding:NSUTF8StringEncoding]
+              	forKey:@"inputMessage"];
+	} else {
+		filter = [CIFilter filterWithName:@"CICode128BarcodeGenerator"];
+		[filter setDefaults];
+	    [filter setValue:[self.stringToEncode dataUsingEncoding:NSASCIIStringEncoding]
+              	forKey:@"inputMessage"];
+	}
+   
     /* prepare cgImage */
     CIImage *outputImage = [filter outputImage];
     CIContext *context = [CIContext contextWithOptions:nil];
@@ -746,11 +754,13 @@ parentViewController:(UIViewController*)parentViewController
     CGImageRelease(cgImage);
     
     /* save image to file */
-    NSString* filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"tmpqrcode.jpeg"];
+    NSTimeInterval today = [[NSDate date] timeIntervalSince1970]; 
+    NSString *intervalString = [NSString stringWithFormat:@"%f", today];
+    NSString* filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@%@%@", @"tmpqrcode", intervalString, @".jpeg"]];
     [UIImageJPEGRepresentation(qrImage, 1.0) writeToFile:filePath atomically:YES];
     
     /* return file path back to cordova */
-    [self.plugin returnImage:filePath format:@"QR_CODE" callback: self.callback];
+    [self.plugin returnImage:filePath format:self.format callback: self.callback];
 }
 @end
 

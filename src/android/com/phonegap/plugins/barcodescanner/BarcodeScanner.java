@@ -8,13 +8,31 @@
  */
 package com.phonegap.plugins.barcodescanner;
 
+import java.lang.Exception;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import java.util.Map;
+import java.util.EnumMap;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.os.Environment;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.util.Log;
+import com.google.zxing.client.android.Intents;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.EncodeHintType;
+
+import android.graphics.Bitmap;
 
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
@@ -29,6 +47,10 @@ import android.util.Log;
  */
 public class BarcodeScanner extends CordovaPlugin {
     public static final int REQUEST_CODE = 0x0ba7c0de;
+    public static final int ENCODE_REQUEST_CODE = 2000;
+
+    private static final int WHITE = 0xFFFFFFFF;
+    private static final int BLACK = 0xFF000000;
 
     private static final String SCAN = "scan";
     private static final String ENCODE = "encode";
@@ -37,7 +59,7 @@ public class BarcodeScanner extends CordovaPlugin {
     private static final String TEXT = "text";
     private static final String DATA = "data";
     private static final String TYPE = "type";
-    private static final String SCAN_INTENT = "com.google.zxing.client.android.SCAN";
+    private static final String SCAN_INTENT = "com.phonegap.plugins.barcodescanner.SCAN";
     private static final String ENCODE_DATA = "ENCODE_DATA";
     private static final String ENCODE_TYPE = "ENCODE_TYPE";
     private static final String ENCODE_INTENT = "com.phonegap.plugins.barcodescanner.ENCODE";
@@ -81,6 +103,7 @@ public class BarcodeScanner extends CordovaPlugin {
             if (obj != null) {
                 String type = obj.optString(TYPE);
                 String data = obj.optString(DATA);
+                String format = obj.optString(FORMAT);
 
                 // If the type is null then force the type to text
                 if (type == null) {
@@ -92,7 +115,7 @@ public class BarcodeScanner extends CordovaPlugin {
                     return true;
                 }
 
-                encode(type, data);
+                encode(type, data, format);
             } else {
                 callbackContext.error("User did not specify data to encode");
                 return true;
@@ -111,6 +134,8 @@ public class BarcodeScanner extends CordovaPlugin {
     public void scan(JSONArray args) {
         Intent intentScan = new Intent(SCAN_INTENT);
         intentScan.addCategory(Intent.CATEGORY_DEFAULT);
+        intentScan.putExtra(Intents.Scan.PREFER_FRONTCAMERA, false);
+        intentScan.putExtra(Intents.Scan.SHOW_FLIP_CAMERA_BUTTON, false);
 
         // add config as intent extras
         if(args.length() > 0) {
@@ -157,6 +182,87 @@ public class BarcodeScanner extends CordovaPlugin {
     }
 
     /**
+     * Initiates a barcode encode.
+     *
+     * @param type
+     *            Encoding type.
+     * @param data
+     *            The data to encode in the bar code.
+     */
+    public void encode(String type, String data, String format) {
+        try {
+            String contentsToEncode = data;
+            Map<EncodeHintType, Object> hints = null;
+            String encoding = guessAppropriateEncoding(contentsToEncode);
+            if (encoding != null) {
+                hints = new EnumMap<EncodeHintType, Object>(EncodeHintType.class);
+                hints.put(EncodeHintType.CHARACTER_SET, encoding);
+            }
+            MultiFormatWriter writer = new MultiFormatWriter();
+            BitMatrix result;
+            try {
+                BarcodeFormat barcodeFormat = BarcodeFormat.valueOf(format);
+                int width = 177; // default QR maximum width
+                int height = 177; // default QR maximum height
+                if (BarcodeFormat.CODE_128 == barcodeFormat) {
+                    height /= 2;
+                }
+                result = writer.encode(contentsToEncode, BarcodeFormat.valueOf(format), width, height, hints);
+            } catch (IllegalArgumentException iae) {
+                throw iae;
+            }
+            int width = result.getWidth();
+            int height = result.getHeight();
+            int[] pixels = new int[width * height];
+            for (int y = 0; y < height; y++) {
+                int offset = y * width;
+                for (int x = 0; x < width; x++) {
+                    pixels[offset + x] = result.get(x, y) ? BLACK : WHITE;
+                }
+            }
+
+            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
+            File cache = null;
+
+            // SD Card Mounted
+            if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                cache = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/Android/data/"
+                        + cordova.getActivity().getPackageName() + "/cache/");
+            } else {
+
+                // Use internal storage
+                cache = this.cordova.getActivity().getCacheDir();
+            }
+
+            // Create the cache directory if it doesn't exist
+            cache.mkdirs();
+            File outputFile = File.createTempFile("barcode", ".png", cache);
+            outputFile.deleteOnExit();
+            FileOutputStream out = null;
+            try {
+                out = new FileOutputStream(outputFile);
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    if (out != null) {
+                        out.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            JSONObject obj = new JSONObject();
+            obj.put("file", outputFile.getAbsolutePath());
+            this.callbackContext.success(obj);
+        } catch (Exception e) {
+            this.callbackContext.error(e.getLocalizedMessage());
+        }
+    }
+
+    /**
      * Called when the barcode scanner intent completes.
      *
      * @param requestCode The request code originally supplied to startActivityForResult(),
@@ -193,6 +299,8 @@ public class BarcodeScanner extends CordovaPlugin {
                 //this.error(new PluginResult(PluginResult.Status.ERROR), this.callback);
                 this.callbackContext.error("Unexpected error");
             }
+        } else if (requestCode == ENCODE_REQUEST_CODE) {
+            this.callbackContext.success();
         }
     }
 
@@ -210,5 +318,14 @@ public class BarcodeScanner extends CordovaPlugin {
         intentEncode.setPackage(this.cordova.getActivity().getApplicationContext().getPackageName());
 
         this.cordova.getActivity().startActivity(intentEncode);
+    }
+
+    private static String guessAppropriateEncoding(CharSequence contents) {
+        for (int i = 0; i < contents.length(); i++) {
+            if (contents.charAt(i) > 0xFF) {
+                return "UTF-8";
+            }
+        }
+        return null;
     }
 }
