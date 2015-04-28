@@ -1,4 +1,4 @@
-function createStubs() {
+function createStubs(context) {
 
     var $ = window.top.jQuery;
     var barcode = null;
@@ -28,14 +28,53 @@ function createStubs() {
         $('#overlay-views').append(scanBarcode);
         return scanBarcode;
     }
-
+    context.loadScriptFile("jquery.qrcode-0.11.0.js");
+    context.loadScriptFile("jquery-barcode.js");
     return {
         BarcodeScanner: {
-            encode: function() {
-
+            encode: function(options) {
                 var encodePromise = new Promise(function(resolve, reject) {
-
-                })
+                    var data = {};
+                    if (options["format"] === "QR_CODE") {
+                        $('body').append('<div id="qrContainer"></div>');
+                        $('#qrContainer').hide();
+                        $('#qrContainer').qrcode({
+                            render: 'image',
+                            minVersion: 1,
+                            maxVersion: 40,
+                            ecLevel: 'L',
+                            left: 0,
+                            top: 0,
+                            size: 200,
+                            fill: '#000',
+                            background: null,
+                            text: options["data"],
+                            radius: 0,
+                            quiet: 0,
+                            mode: 0,
+                            mSize: 0.1,
+                            mPosX: 0.5,
+                            mPosY: 0.5,
+                            label: 'no label',
+                            fontname: 'sans',
+                            fontcolor: '#000',
+                            image: null
+                        });
+                        var base64 = $('#qrContainer').find('img').attr('src');
+                        $('#qrContainer').remove();
+                        data["file"] = base64;
+                    } else {
+                        var settings = {
+                            bgColor: "#FFFFFF",
+                            color: "#000000",
+                            barWidth: "1",
+                            barHeight: "50",
+                            addQuietZone: false
+                        };
+                        data["file"] = $('body').barcode(options["data"], "code128", settings);
+                    }
+                    resolve(data);
+                });
                 return encodePromise;
             },
             scan: function() {
