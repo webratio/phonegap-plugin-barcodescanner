@@ -9,20 +9,25 @@ function createStubs(context) {
 
         /* Creates fake 'back' button and hides the original one */
         $('#platform-events-fire-back').css("display", "none");
-        $('#platform-events-fire-suspend')
-                .before(
-                        "<button id=\"platform-events-fire-back-barcode\" class=\"ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only\"><span class=\"ui-button-text\">Back</span></button>");
-        $('#platform-events-fire-back-barcode').css("width", "90px");
+        $('#platform-events-fire-suspend').before("<button id=\"platform-events-fire-back-barcode\">Back</button>");
+        $('#platform-events-fire-back-barcode').button().css("width", "90px");
 
         var scanBarcodeTemplate = [
-                "<section id=\"wr-barcode-emulator\" style=\"display:none; background: rgba(0, 0, 0, 00); position: absolute; width: 100%; height: 100%; z-index: 10000;\">",
-                "<div style=\"background: #fff; height: 100%; width: 100%; overflow: auto; \">", "<select id=\"wr-barcode-format\">",
-                "<option value=\"QR_CODE\">QR_CODE</option>", "<option value=\"CODE_128\">CODE_128</option>",
-                "<option value=\"CODE_39\">CODE_39</option>", "<option value=\"DATA_MATRIX\">DATA_MATRIX</option>",
-                "<option value=\"EAN_8\">EAN_8</option>", "<option value=\"EAN_13\">EAN_13</option>",
-                "<option value=\"ITF\">ITF</option>", "<option value=\"UPC_E\">UPC_E</option>",
-                "<option value=\"UPC_A\">UPC_A</option>", "</select>", "<textarea id=\"wr-barcode-text\" rows=\"4\" cols=\"50\">",
-                "</textarea>", "<button id=\"wr-scan-button\">", "scan", "</button>", "</div>", "</section>" ].join("\n");
+                "<section id=\"wr-barcode-emulator\" class=\"overlay\" style=\"display:none; background: #fff; position: absolute; width: 100%; height: 100%; z-index: 10000;\">",
+                "<div id=\"wr-barcode-title\" style=\"background: #000; font-size: 1em; color: #E6E6E6; font-weight: bold; line-height: 44px;padding: 0 10px;position: absolute;top: 0;left: 0;right: 0;\">",
+                "<div style=\"display: inline-block; color: #E6E6E6; \">Scan barcode</div>",
+                "<div id=\"cancel-barcode\" style=\" cursor: pointer;  float: right;\">CANCEL</div>", "</div>",
+                "<div style=\"margin: 44px 0;\">",
+                "<div style=\"padding: 10px;\"><div style=\"line-height: 1.5em;\">Format</div><div>",
+                "<select id=\"wr-barcode-format\">", "<option value=\"QR_CODE\">QR_CODE</option>",
+                "<option value=\"CODE_128\">CODE_128</option>", "<option value=\"CODE_39\">CODE_39</option>",
+                "<option value=\"DATA_MATRIX\">DATA_MATRIX</option>", "<option value=\"EAN_8\">EAN_8</option>",
+                "<option value=\"EAN_13\">EAN_13</option>", "<option value=\"ITF\">ITF</option>",
+                "<option value=\"UPC_E\">UPC_E</option>", "<option value=\"UPC_A\">UPC_A</option>", "</select></div></div>",
+                "<div style=\"padding: 10px;\"><div style=\"line-height: 1.5em;\">Value</div><div>",
+                "<textarea id=\"wr-barcode-text\" rows=\"4\" style=\"width: 100%; box-sizing: border-box;\">",
+                "</textarea></div></div>", "<button id=\"wr-scan-button\" style=\"margin: 10px;\">", "scan", "</button>", "</div>",
+                "</section>" ].join("\n");
 
         var scanBarcode = $(scanBarcodeTemplate);
         $('#overlay-views').append(scanBarcode);
@@ -36,9 +41,10 @@ function createStubs(context) {
                 var encodePromise = new Promise(function(resolve, reject) {
                     var data = {};
                     if (options["format"] === "QR_CODE") {
-                        $('body').append('<div id="qrContainer"></div>');
-                        $('#qrContainer').hide();
-                        $('#qrContainer').qrcode({
+                        var container = $("<div></div>");
+                        // $('body').append('<div id="qrContainer"></div>');
+                        // $('#qrContainer').hide();
+                        container.qrcode({
                             render: 'image',
                             minVersion: 1,
                             maxVersion: 40,
@@ -60,8 +66,8 @@ function createStubs(context) {
                             fontcolor: '#000',
                             image: null
                         });
-                        var base64 = $('#qrContainer').find('img').attr('src');
-                        $('#qrContainer').remove();
+                        var base64 = container.find('img').attr('src');
+                        // $('#qrContainer').remove();
                         data["file"] = base64;
                     } else {
                         var settings = {
@@ -71,7 +77,7 @@ function createStubs(context) {
                             barHeight: "50",
                             addQuietZone: false
                         };
-                        data["file"] = $('body').barcode(options["data"], "code128", settings);
+                        data["file"] = $('<div></div>').barcode(options["data"], "code128", settings) || null;
                     }
                     resolve(data);
                 });
@@ -81,8 +87,7 @@ function createStubs(context) {
                 barcode = initScan();
                 var scanPromise = new Promise(function(resolve, reject) {
 
-                    /* User clicks 'back' button */
-                    $('#platform-events-fire-back-barcode').click(function(e) {
+                    var cancel = function(e) {
                         var result = {
                             "cancelled": "true",
                             "text": "",
@@ -91,18 +96,23 @@ function createStubs(context) {
 
                         /* Restores original 'back' button */
                         $('#platform-events-fire-back-barcode').remove();
-                        $('#platform-events-fire-back').css("display", "initial");
+                        $('#platform-events-fire-back').css("display", "");
 
                         barcode.hide('slide', {
-                            direction: 'left',
+                            direction: 'down',
                             duration: 250
                         });
 
                         resolve(result);
-                    });
+                    };
+
+                    /* User clicks 'back' button */
+                    $('#platform-events-fire-back-barcode').click(cancel);
+
+                    $('#cancel-barcode', barcode).click(cancel);
 
                     /* User clicks 'scan' button */
-                    $('#wr-scan-button').click(function(e) {
+                    $('#wr-scan-button').button().click(function(e) {
                         var format = $('#wr-barcode-format').val();
                         var text = $('#wr-barcode-text').val();
 
@@ -119,10 +129,10 @@ function createStubs(context) {
 
                         /* Restores original 'back' button */
                         $('#platform-events-fire-back-barcode').remove();
-                        $('#platform-events-fire-back').css("display", "initial");
+                        $('#platform-events-fire-back').css("display", "");
 
                         barcode.hide('slide', {
-                            direction: 'left',
+                            direction: 'down',
                             duration: 250
                         });
 
@@ -137,7 +147,7 @@ function createStubs(context) {
                     });
 
                     barcode.show('slide', {
-                        direction: 'right',
+                        direction: 'down',
                         duration: 250
                     });
                 })
