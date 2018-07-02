@@ -3,7 +3,7 @@
         xmlns:android="http://schemas.android.com/apk/res/android" 
         xmlns:rim="http://www.blackberry.com/ns/widgets" 
         id="phonegap-plugin-barcodescanner" 
-        version="7.0.2.2wr">
+        version="7.0.2.3wr">
   <name>BarcodeScanner</name>
   <description>You can use the BarcodeScanner plugin to scan different types of barcodes (using the device's camera) and get the metadata encoded in them for processing within your application.</description>
   <license>MIT</license>
@@ -25,7 +25,7 @@
     <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
       <string>$CAMERA_USAGE_DESCRIPTION</string>
     </config-file>
-    <preference name="CAMERA_USAGE_DESCRIPTION" default=" "/>
+    <preference name="CAMERA_USAGE_DESCRIPTION" default="need camera access to take pictures"/>
     <resource-file src="src/ios/scannerOverlay.xib"/>
     <resource-file src="src/ios/CDVBarcodeScanner.bundle"/>
     <header-file src="src/ios/zxing-all-in-one.h"/>
