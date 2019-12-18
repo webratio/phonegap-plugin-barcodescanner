@@ -52,7 +52,7 @@ import com.google.zxing.client.android.Intents;
  * @sa https://github.com/apache/cordova-android/blob/master/framework/src/org/apache/cordova/CordovaPlugin.java
  */
 public class BarcodeScanner extends CordovaPlugin {
-    public static final int REQUEST_CODE = 0x0ba7c0de;
+    public static final int REQUEST_CODE = 0x0ba7c;
     public static final int ENCODE_REQUEST_CODE = 2000;
 
     private static final int WHITE = 0xFFFFFFFF;
