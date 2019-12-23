@@ -679,8 +679,6 @@ parentViewController:(UIViewController*)parentViewController
     self.callback = nil;
     self.stringToEncode = nil;
 	self.format = nil;
-    
-    [super dealloc];
 }
 //--------------------------------------------------------------------------
 - (void)generateImage{
